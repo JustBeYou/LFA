@@ -1,0 +1,5 @@
+4
+s 0 2 b s a p
+p 0 2 a p b q
+q 0 2 a r b s
+r 1 2 a r b r
