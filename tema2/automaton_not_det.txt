@@ -1,0 +1,13 @@
+8
+0 0 2 a 1 a 2 
+1 0 1 b 1
+2 0 4 c 5 b 3 c 3 d 0
+3 0 2 d 4 a 2
+4 1 0
+5 0 3 a 7 a 6 c 6
+6 0 2 d 7 c 5
+7 1 1 d 7
+
+# format
+<numar noduri>
+<nume nod> <1 - este final, 0 - nu este final> <cate legaturi are> <litera legatura> <nod destinatie> <litera legatura> <nod destinatie> ...
