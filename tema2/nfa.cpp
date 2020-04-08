@@ -2,9 +2,12 @@
 #include <vector>
 #include <map>
 #include <fstream>
+#include <cstddef>
+#include <cstdint>
 
 using namespace std;
 
+typedef unsigned int uint;
 const char lambda = '~';
 
 struct AutomatonNode {
@@ -21,8 +24,20 @@ class NFA {
 
         bool checkIfValid(string &input, uint inputIndex, char currentNode) {
             //cout << "node: " << currentNode << " " << input[inputIndex] << endl;
-            if (inputIndex == input.size() - 1) {
-                return this->checkFinal(input, currentNode);
+            bool isAnyValid = false;
+            // empty transition
+            if (transitions[currentNode].characterTransition.find(lambda) !=
+                transitions[currentNode].characterTransition.end()) {
+                
+                auto nextNodeList = this->transitions[currentNode].characterTransition[lambda];
+                for (char nextNode: nextNodeList) {
+                    //cout << "lambda next: " << nextNode << endl;
+                    isAnyValid = isAnyValid or checkIfValid(input, inputIndex, nextNode);
+                }
+            }
+
+            if (inputIndex == input.size()) {
+                return this->checkFinal(currentNode) or isAnyValid;
             }
 
             char currentChar = input[inputIndex];
@@ -33,37 +48,16 @@ class NFA {
             }
 
             auto nextNodeList = this->transitions[currentNode].characterTransition[currentChar];
-            bool isAnyValid = false;
             for (char nextNode: nextNodeList) {
                 //cout << "next node: " << nextNode << endl;
                 isAnyValid = isAnyValid or checkIfValid(input, inputIndex + 1, nextNode);
-            }
-            
-            // empty transition
-            if (transitions[currentNode].characterTransition.find(lambda) !=
-                transitions[currentNode].characterTransition.end()) {
-                
-                auto nextNodeList = this->transitions[currentNode].characterTransition[lambda];
-                for (char nextNode: nextNodeList) {
-                    isAnyValid = isAnyValid or checkIfValid(input, inputIndex, nextN);
-                }
             }
 
             return isAnyValid;    
         }
 
-        bool checkFinal(string &input, char currentNode) {
-            auto nextNodeList = this->transitions[currentNode].characterTransition[input[input.size() - 1]];
-            
-            bool isAnyFinal = false;
-
-            for (char nextNode: nextNodeList) {
-                //cout << "is " << nextNode << " valid? ";
-                isAnyFinal = isAnyFinal or this->transitions[nextNode].isFinal;
-                //cout << this->transitions[nextNode].isFinal << endl; 
-            }
-
-            return isAnyFinal;
+        bool checkFinal(char currentNode) {
+            return this->transitions[currentNode].isFinal;
         }
 
     public:
@@ -138,6 +132,17 @@ int main() {
     char startNode = parsedInput.second;
     
     NFA automaton(transitions, startNode);
+
+    string s = "aa";
+    cout << automaton.check(s) << endl;
+    s = "ab";
+    cout << automaton.check(s) << endl;
+    s = "b";
+    cout << automaton.check(s) << endl;
+    s = "ba";
+    cout << automaton.check(s) << endl;
+    s = "bb";
+    cout << automaton.check(s) << endl;
 
     return 0;
 }
