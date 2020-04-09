@@ -111,11 +111,78 @@ class NFA {
                             this->transitions[currentNode].characterTransition[secondGradeCharacter].end(),
                             secondGradeNodeList.begin(), secondGradeNodeList.end()
                         );
+
+                        this->transitions[currentNode].characterTransition[secondGradeCharacter].sort();
+                        this->transitions[currentNode].characterTransition[secondGradeCharacter].unique();
                     }
                 }
 
                 DEBUG_ONLY(cout << "Delete lambda of " << currentNode << endl;) 
                 this->transitions[currentNode].characterTransition.erase(lambda);
+            }
+        }
+
+        void eliminateLambda() {
+            map<string, bool> visited;
+
+            for (auto startNode: this->startingNodes) {
+                filterLambdas(startNode, visited);
+            }
+        }
+
+        void eliminateNDStates(string& currentNode, map<string, bool>& visited) {
+            DEBUG_ONLY(cout << "deep into " << currentNode << endl;)
+            visited[currentNode] = true;
+
+            for (auto& transition: this->transitions[currentNode].characterTransition) {
+                auto character = transition.first;
+                auto &nextNodeList = transition.second;
+
+                for (auto& nextNode: nextNodeList) {
+                    if (not visited[nextNode]) {
+                        eliminateNDStates(nextNode, visited);
+                    }
+                }
+
+                if (nextNodeList.size() > 1) {
+                    vector<string> names;
+                    for (auto& nextNode: nextNodeList) {
+                        names.push_back(nextNode);
+                    }
+                    sort(names.begin(), names.end());
+
+                    string newName = "";
+                    bool isStart = false;
+                    bool isFinal = false;
+                    for (auto& name: names) {
+                        newName += name + "_";
+                        isStart = isStart or this->transitions[name].isStart;
+                        isFinal = isFinal or this->transitions[name].isFinal;
+                    }
+                    newName.pop_back();
+
+                    auto& newNode = this->transitions[newName];
+                    newNode.isStart = isStart;
+                    newNode.isFinal = isFinal;
+
+                    for (auto& nextNode: nextNodeList) {
+                        for (auto& nextNodeTransition: this->transitions[nextNode].characterTransition) {
+                            auto nextCharacter = nextNodeTransition.first;
+                            newNode.characterTransition[nextCharacter].insert(
+                                newNode.characterTransition[nextCharacter].end(),
+                                nextNodeTransition.second.begin(), nextNodeTransition.second.end()
+                            );
+
+                            newNode.characterTransition[nextCharacter].sort();
+                            newNode.characterTransition[nextCharacter].unique();
+                        }
+                    }
+                    
+                    DEBUG_ONLY(cout << "new node: " << newName << endl;)
+
+                    nextNodeList.clear();
+                    nextNodeList.push_back(newName);
+                }
             }
         }
 
@@ -133,11 +200,12 @@ class NFA {
             return anyValidPath;
         }
 
-        void eliminateLambda() {
-            map<string, bool> visited;
+        void eliminateND() {
+            eliminateLambda();
 
+            map<string, bool> visited;
             for (auto startNode: this->startingNodes) {
-                filterLambdas(startNode, visited);
+                eliminateNDStates(startNode, visited);
             }
         }
 
@@ -258,7 +326,7 @@ int main() {
     cout << s << " : " << automaton.check(s) << endl;
     cout << automaton << endl;
 
-    automaton.eliminateLambda();
+    automaton.eliminateND();
 
     cout << "---------------" << endl;
     s = "aa";
