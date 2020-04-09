@@ -1,9 +1,13 @@
 #include <iostream>
 #include <vector>
+#include <list>
 #include <map>
+#include <set>
 #include <fstream>
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
+#include <utility>
 
 using namespace std;
 
@@ -11,8 +15,9 @@ typedef unsigned int uint;
 const char lambda = '~';
 
 struct AutomatonNode {
-    map<char, vector<char>> characterTransition;
+    map<char, list<char>> characterTransition;
     bool isFinal;
+    bool isStart;
 };
 
 typedef map<char, AutomatonNode> AutomatonGraph;
@@ -20,7 +25,7 @@ typedef map<char, AutomatonNode> AutomatonGraph;
 class NFA {
     private:
         AutomatonGraph transitions;
-        char startNode;
+        set<char> startingNodes;
 
         bool checkIfValid(string &input, uint inputIndex, char currentNode) {
             //cout << "node: " << currentNode << " " << input[inputIndex] << endl;
@@ -29,7 +34,7 @@ class NFA {
             if (transitions[currentNode].characterTransition.find(lambda) !=
                 transitions[currentNode].characterTransition.end()) {
                 
-                auto nextNodeList = this->transitions[currentNode].characterTransition[lambda];
+                auto& nextNodeList = this->transitions[currentNode].characterTransition[lambda];
                 for (char nextNode: nextNodeList) {
                     //cout << "lambda next: " << nextNode << endl;
                     isAnyValid = isAnyValid or checkIfValid(input, inputIndex, nextNode);
@@ -47,7 +52,7 @@ class NFA {
                     return false;
             }
 
-            auto nextNodeList = this->transitions[currentNode].characterTransition[currentChar];
+            auto& nextNodeList = this->transitions[currentNode].characterTransition[currentChar];
             for (char nextNode: nextNodeList) {
                 //cout << "next node: " << nextNode << endl;
                 isAnyValid = isAnyValid or checkIfValid(input, inputIndex + 1, nextNode);
@@ -60,14 +65,68 @@ class NFA {
             return this->transitions[currentNode].isFinal;
         }
 
+        void filterLambdas(char currentNode, map<char, bool>& visited) {
+            visited[currentNode] = true;
+
+            for (auto& edge: this->transitions[currentNode].characterTransition) {
+                auto& nextNodeList = edge.second;
+                for (auto& nextNode: nextNodeList) {
+                    if (not visited[nextNode]) {
+                        filterLambdas(nextNode, visited);
+                    }
+                }
+            }
+
+            if (this->transitions[currentNode].characterTransition.find(lambda) != 
+                this->transitions[currentNode].characterTransition.end()) {
+                
+                bool setStartingPoint = this->transitions[currentNode].isStart;
+
+                auto& nextNodeList = this->transitions[currentNode].characterTransition[lambda];
+                for (auto& nextNode: nextNodeList) {
+                    if (this->transitions[nextNode].isFinal) {
+                        this->transitions[currentNode].isFinal = true;
+                    }
+                    if (setStartingPoint) {
+                        this->transitions[nextNode].isStart = true;
+                        this->startingNodes.insert(nextNode);
+                    }
+
+                    auto& secondGradeTransitions = this->transitions[nextNode].characterTransition;
+                    for (auto& secondGradeTransition: secondGradeTransitions) {
+                        auto& secondGradeCharacter = secondGradeTransition.first;
+                        auto& secondGradeNodeList = secondGradeTransition.second;
+
+                        if (secondGradeCharacter == lambda) continue;
+                        this->transitions[currentNode].characterTransition[secondGradeCharacter].merge(secondGradeNodeList);
+                    }
+                }
+
+                //cout << "Delete lambda of " << currentNode << endl;  
+                this->transitions[currentNode].characterTransition.erase(lambda);
+            }
+        }
+
     public:
         NFA(AutomatonGraph &transitions, char startNode) {
             this->transitions = transitions;
-            this->startNode = startNode;
+            this->startingNodes.insert(startNode);
         }
 
         bool check(string &input) {
-            return this->checkIfValid(input, 0, this->startNode);
+            bool anyValidPath = false;
+            for (auto startNode: this->startingNodes) {
+                anyValidPath = anyValidPath or this->checkIfValid(input, 0, startNode);
+            }
+            return anyValidPath;
+        }
+
+        void eliminateLambda() {
+            map<char, bool> visited;
+
+            for (auto startNode: this->startingNodes) {
+                filterLambdas(startNode, visited);
+            }
         }
 };
 
@@ -90,6 +149,7 @@ class InputReader {
                 }
 
                 transitions[sourceNode].isFinal = isFinal;
+                transitions[sourceNode].isStart = false;
 
                 for (uint j = 0; j < edgesCount; j++) {
                     char destinationNode;
@@ -99,6 +159,7 @@ class InputReader {
                 }
             }
 
+            transitions[startNode].isStart = true;
             return {transitions, startNode};
         }
 };
@@ -134,6 +195,20 @@ int main() {
     NFA automaton(transitions, startNode);
 
     string s = "aa";
+    cout << automaton.check(s) << endl;
+    s = "ab";
+    cout << automaton.check(s) << endl;
+    s = "b";
+    cout << automaton.check(s) << endl;
+    s = "ba";
+    cout << automaton.check(s) << endl;
+    s = "bb";
+    cout << automaton.check(s) << endl;
+
+    automaton.eliminateLambda();
+
+    cout << "---------------" << endl;
+    s = "aa";
     cout << automaton.check(s) << endl;
     s = "ab";
     cout << automaton.check(s) << endl;
