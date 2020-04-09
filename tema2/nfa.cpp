@@ -9,6 +9,12 @@
 #include <algorithm>
 #include <utility>
 
+#ifdef DEBUG
+#define DEBUG_ONLY(x) x
+#else
+#define DEBUG_ONLY(x)   
+#endif
+
 using namespace std;
 
 typedef unsigned int uint;
@@ -28,7 +34,7 @@ class NFA {
         set<char> startingNodes;
 
         bool checkIfValid(string &input, uint inputIndex, char currentNode) {
-            //cout << "node: " << currentNode << " " << input[inputIndex] << endl;
+            DEBUG_ONLY(cout << "node: " << currentNode << " " << input[inputIndex] << endl;)
             bool isAnyValid = false;
             // empty transition
             if (transitions[currentNode].characterTransition.find(lambda) !=
@@ -36,7 +42,7 @@ class NFA {
                 
                 auto& nextNodeList = this->transitions[currentNode].characterTransition[lambda];
                 for (char nextNode: nextNodeList) {
-                    //cout << "lambda next: " << nextNode << endl;
+                    DEBUG_ONLY(cout << "lambda next: " << nextNode << endl;)
                     isAnyValid = isAnyValid or checkIfValid(input, inputIndex, nextNode);
                 }
             }
@@ -49,12 +55,12 @@ class NFA {
             
             if (transitions[currentNode].characterTransition.find(currentChar) ==
                 transitions[currentNode].characterTransition.end()) {
-                    return false;
+                    return isAnyValid or false;
             }
 
             auto& nextNodeList = this->transitions[currentNode].characterTransition[currentChar];
             for (char nextNode: nextNodeList) {
-                //cout << "next node: " << nextNode << endl;
+                DEBUG_ONLY(cout << "next node: " << nextNode << endl;)
                 isAnyValid = isAnyValid or checkIfValid(input, inputIndex + 1, nextNode);
             }
 
@@ -62,6 +68,7 @@ class NFA {
         }
 
         bool checkFinal(char currentNode) {
+            DEBUG_ONLY(cout << "check final " << currentNode << " " << this->transitions[currentNode].isFinal << endl;)
             return this->transitions[currentNode].isFinal;
         }
 
@@ -98,11 +105,15 @@ class NFA {
                         auto& secondGradeNodeList = secondGradeTransition.second;
 
                         if (secondGradeCharacter == lambda) continue;
-                        this->transitions[currentNode].characterTransition[secondGradeCharacter].merge(secondGradeNodeList);
+                        // merge
+                        this->transitions[currentNode].characterTransition[secondGradeCharacter].insert(
+                            this->transitions[currentNode].characterTransition[secondGradeCharacter].end(),
+                            secondGradeNodeList.begin(), secondGradeNodeList.end()
+                        );
                     }
                 }
 
-                //cout << "Delete lambda of " << currentNode << endl;  
+                DEBUG_ONLY(cout << "Delete lambda of " << currentNode << endl;) 
                 this->transitions[currentNode].characterTransition.erase(lambda);
             }
         }
@@ -195,29 +206,37 @@ int main() {
     NFA automaton(transitions, startNode);
 
     string s = "aa";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "ab";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "b";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "ba";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "bb";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
+    s = "aac";
+    cout << s << " : " << automaton.check(s) << endl;
+    s = "bc";
+    cout << s << " : " << automaton.check(s) << endl;
 
     automaton.eliminateLambda();
 
     cout << "---------------" << endl;
     s = "aa";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "ab";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "b";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "ba";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
     s = "bb";
-    cout << automaton.check(s) << endl;
+    cout << s << " : " << automaton.check(s) << endl;
+    s = "aac";
+    cout << s << " : " << automaton.check(s) << endl;
+    s = "bc";
+    cout << s << " : " << automaton.check(s) << endl;
 
     return 0;
 }
