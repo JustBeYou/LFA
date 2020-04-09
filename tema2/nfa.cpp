@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <list>
+#include <queue>
 #include <map>
 #include <set>
 #include <fstream>
@@ -21,19 +22,19 @@ typedef unsigned int uint;
 const char lambda = '~';
 
 struct AutomatonNode {
-    map<char, list<char>> characterTransition;
+    map<char, list<string>> characterTransition;
     bool isFinal;
     bool isStart;
 };
 
-typedef map<char, AutomatonNode> AutomatonGraph;
+typedef map<string, AutomatonNode> AutomatonGraph;
 
 class NFA {
     private:
         AutomatonGraph transitions;
-        set<char> startingNodes;
+        set<string> startingNodes;
 
-        bool checkIfValid(string &input, uint inputIndex, char currentNode) {
+        bool checkIfValid(string &input, uint inputIndex, string& currentNode) {
             DEBUG_ONLY(cout << "node: " << currentNode << " " << input[inputIndex] << endl;)
             bool isAnyValid = false;
             // empty transition
@@ -41,7 +42,7 @@ class NFA {
                 transitions[currentNode].characterTransition.end()) {
                 
                 auto& nextNodeList = this->transitions[currentNode].characterTransition[lambda];
-                for (char nextNode: nextNodeList) {
+                for (auto& nextNode: nextNodeList) {
                     DEBUG_ONLY(cout << "lambda next: " << nextNode << endl;)
                     isAnyValid = isAnyValid or checkIfValid(input, inputIndex, nextNode);
                 }
@@ -59,7 +60,7 @@ class NFA {
             }
 
             auto& nextNodeList = this->transitions[currentNode].characterTransition[currentChar];
-            for (char nextNode: nextNodeList) {
+            for (auto& nextNode: nextNodeList) {
                 DEBUG_ONLY(cout << "next node: " << nextNode << endl;)
                 isAnyValid = isAnyValid or checkIfValid(input, inputIndex + 1, nextNode);
             }
@@ -67,12 +68,12 @@ class NFA {
             return isAnyValid;    
         }
 
-        bool checkFinal(char currentNode) {
+        bool checkFinal(string& currentNode) {
             DEBUG_ONLY(cout << "check final " << currentNode << " " << this->transitions[currentNode].isFinal << endl;)
             return this->transitions[currentNode].isFinal;
         }
 
-        void filterLambdas(char currentNode, map<char, bool>& visited) {
+        void filterLambdas(string& currentNode, map<string, bool>& visited) {
             visited[currentNode] = true;
 
             for (auto& edge: this->transitions[currentNode].characterTransition) {
@@ -119,7 +120,7 @@ class NFA {
         }
 
     public:
-        NFA(AutomatonGraph &transitions, char startNode) {
+        NFA(AutomatonGraph &transitions, string& startNode) {
             this->transitions = transitions;
             this->startingNodes.insert(startNode);
         }
@@ -133,24 +134,60 @@ class NFA {
         }
 
         void eliminateLambda() {
-            map<char, bool> visited;
+            map<string, bool> visited;
 
             for (auto startNode: this->startingNodes) {
                 filterLambdas(startNode, visited);
             }
         }
+
+        friend ostream& operator<<(ostream &out, NFA& automaton);
 };
+
+ostream& operator<<(ostream &out, NFA& automaton) {
+    out << "Automaton" << endl;
+    map<string, bool> visited;
+    queue<string> nodes;
+
+    for (auto& startNode: automaton.startingNodes) {
+        nodes.push(startNode);
+    }
+
+    while (not nodes.empty()) {
+        auto node = nodes.front();
+        nodes.pop();
+
+        if (visited[node]) continue;
+        visited[node] = true;
+
+        bool isStart = automaton.transitions[node].isStart;
+        bool isFinal = automaton.transitions[node].isFinal;
+        out << "Node(" << (isStart ? "S" : "") << (isFinal ? "F" : "") << "): " << node << endl;
+        for (auto& transition: automaton.transitions[node].characterTransition) {
+            auto& character = transition.first;
+            auto& nextNodeList = transition.second;
+            out << character << ": ";
+            for (auto& nextNode: nextNodeList) {
+                nodes.push(nextNode);
+                out << nextNode << " ";
+            }
+            out << endl;
+        }
+    }
+
+    return out;
+}
 
 class InputReader {
     public:
-        static pair<AutomatonGraph, char> readFromStream(istream &stream) {
+        static pair<AutomatonGraph, string> readFromStream(istream &stream) {
             AutomatonGraph transitions;
-            char startNode;
+            string startNode;
             uint transitionsCount;
             stream >> transitionsCount;
 
             for (uint i = 0; i < transitionsCount; i++) {
-                char sourceNode;
+                string sourceNode;
                 uint edgesCount;
                 bool isFinal;
                 stream >> sourceNode >> isFinal >> edgesCount;
@@ -163,7 +200,7 @@ class InputReader {
                 transitions[sourceNode].isStart = false;
 
                 for (uint j = 0; j < edgesCount; j++) {
-                    char destinationNode;
+                    string destinationNode;
                     char inputChar;
                     stream >> inputChar >> destinationNode;
                     transitions[sourceNode].characterTransition[inputChar].push_back(destinationNode);                    
@@ -201,7 +238,7 @@ int main() {
     ifstream inputFile("automaton_lambda.txt");
     auto parsedInput = InputReader::readFromStream(inputFile);
     AutomatonGraph transitions = parsedInput.first;
-    char startNode = parsedInput.second;
+    auto startNode = parsedInput.second;
     
     NFA automaton(transitions, startNode);
 
@@ -219,6 +256,7 @@ int main() {
     cout << s << " : " << automaton.check(s) << endl;
     s = "bc";
     cout << s << " : " << automaton.check(s) << endl;
+    cout << automaton << endl;
 
     automaton.eliminateLambda();
 
@@ -237,6 +275,7 @@ int main() {
     cout << s << " : " << automaton.check(s) << endl;
     s = "bc";
     cout << s << " : " << automaton.check(s) << endl;
+    cout << automaton << endl;
 
     return 0;
 }
